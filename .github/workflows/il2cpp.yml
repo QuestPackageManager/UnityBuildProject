@@ -16,15 +16,15 @@ jobs:
             fail-fast: false
             matrix:
                 include:
-                    - unity: "2019.4.28f1"
-                      target: "StandaloneWindows64"
-                      os: "windows-latest"
-                    - unity: "2019.4.28f1"
-                      target: "StandaloneLinux64"
-                      os: "ubuntu-latest"
-                    - unity: "2019.4.28f1"
-                      target: "Android"
-                      os: "ubuntu-latest"
+                    # - unity: "2019.4.28f1"
+                    #   target: "StandaloneWindows64"
+                    #   os: "windows-latest"
+                    # - unity: "2019.4.28f1"
+                    #   target: "StandaloneLinux64"
+                    #   os: "ubuntu-latest"
+                    # - unity: "2019.4.28f1"
+                    #   target: "Android"
+                    #   os: "ubuntu-latest"
 
                     - unity: "2022.3.33f1"
                       target: "StandaloneWindows64"
