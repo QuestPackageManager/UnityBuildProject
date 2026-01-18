@@ -11,12 +11,40 @@ on:
 jobs:
     build:
         name: Build (Unity ${{ matrix.unity }} / ${{ matrix.target }})
-        runs-on: ubuntu-latest
+        runs-on: ${{ matrix.os }}
         strategy:
             fail-fast: false
             matrix:
-                unity: ["2019.4.28f1", "2022.3.33f1", "6000.0"]
-                target: ["StandaloneWindows64", "StandaloneLinux64", "Android"]
+                include:
+                    - unity: "2019.4.28f1"
+                      target: "StandaloneWindows64"
+                      os: "windows-latest"
+                    - unity: "2019.4.28f1"
+                      target: "StandaloneLinux64"
+                      os: "ubuntu-latest"
+                    - unity: "2019.4.28f1"
+                      target: "Android"
+                      os: "ubuntu-latest"
+
+                    - unity: "2022.3.33f1"
+                      target: "StandaloneWindows64"
+                      os: "windows-latest"
+                    - unity: "2022.3.33f1"
+                      target: "StandaloneLinux64"
+                      os: "ubuntu-latest"
+                    - unity: "2022.3.33f1"
+                      target: "Android"
+                      os: "ubuntu-latest"
+
+                    - unity: "6000.0.65f1"
+                      target: "StandaloneWindows64"
+                      os: "windows-latest"
+                    - unity: "6000.0.65f1"
+                      target: "StandaloneLinux64"
+                      os: "ubuntu-latest"
+                    - unity: "6000.0.65f1"
+                      target: "Android"
+                      os: "ubuntu-latest"
 
         steps:
             - name: Checkout
@@ -29,7 +57,7 @@ jobs:
             #       key: ${{ runner.os }}-unity-${{ matrix.unity }}-${{ matrix.target }}-library-${{ hashFiles('**/Packages/manifest.json') }}
 
             - name: Setup Unity
-              uses: game-ci/unity-builder@v2
+              uses: game-ci/unity-builder@v4
               with:
                   unityVersion: ${{ matrix.unity }}
                   targetPlatform: ${{ matrix.target }}
