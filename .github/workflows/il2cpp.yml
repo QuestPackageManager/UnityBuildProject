@@ -77,9 +77,16 @@ jobs:
             #       # Replace `BuildScript.PerformBuild` with your project's build method.
             #       /opt/unity/Editor/Unity -batchmode -nographics -quit -projectPath "$GITHUB_WORKSPACE" -buildTarget ${{ matrix.target }} -executeMethod BuildScript.PerformBuild -logFile "$outdir/build.log" || true
 
-            - name: Archive build
+            - name: Archive build (Linux/macOS)
+              if: runner.os != 'windows-latest'
               run: |
-                  zip -r build-${{ matrix.unity }}-${{ matrix.target }}.zip ./build
+                zip -r build-${{ matrix.unity }}-${{ matrix.target }}.zip ./build
+
+            - name: Archive build (Windows)
+              if: runner.os == 'windows-latest'
+              shell: pwsh
+              run: |
+                Compress-Archive -Path build -DestinationPath build-${{ matrix.unity }}-${{ matrix.target }}.zip -Force
 
             - name: Upload to GitHub Release
               if: github.event_name == 'release'
