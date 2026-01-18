@@ -33,17 +33,20 @@ jobs:
               with:
                   unityVersion: ${{ matrix.unity }}
                   targetPlatform: ${{ matrix.target }}
+                  buildsPath: build
               env:
                   UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
                   UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
                   UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
 
-            - name: Run Unity build
-              run: |
-                  outdir=build/${{ matrix.unity }}/${{ matrix.target }}
-                  mkdir -p "$outdir"
-                  # Replace `BuildScript.PerformBuild` with your project's build method.
-                  /opt/unity/Editor/Unity -batchmode -nographics -quit -projectPath "$GITHUB_WORKSPACE" -buildTarget ${{ matrix.target }} -executeMethod BuildScript.PerformBuild -logFile "$outdir/build.log" || true
+            # - name: Run Unity build
+            #   run: |
+            #       outdir="$GITHUB_WORKSPACE/build/${{ matrix.unity }}/${{ matrix.target }}"
+            #       # If a file named 'build' exists it blocks directory creation — remove it
+            #       mkdir -p "$outdir"
+            #       chmod -R u+rwX "$GITHUB_WORKSPACE/build"
+            #       # Replace `BuildScript.PerformBuild` with your project's build method.
+            #       /opt/unity/Editor/Unity -batchmode -nographics -quit -projectPath "$GITHUB_WORKSPACE" -buildTarget ${{ matrix.target }} -executeMethod BuildScript.PerformBuild -logFile "$outdir/build.log" || true
 
             - name: Archive build
               run: |
