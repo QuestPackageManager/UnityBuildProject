@@ -22,17 +22,21 @@ jobs:
             - name: Checkout
               uses: actions/checkout@v4
 
-            - name: Cache Library
-              uses: actions/cache@v4
-              with:
-                  path: Library
-                  key: ${{ runner.os }}-unity-${{ matrix.unity }}-${{ matrix.target }}-library-${{ hashFiles('**/Packages/manifest.json') }}
+            # - name: Cache Library
+            #   uses: actions/cache@v4
+            #   with:
+            #       path: Library
+            #       key: ${{ runner.os }}-unity-${{ matrix.unity }}-${{ matrix.target }}-library-${{ hashFiles('**/Packages/manifest.json') }}
 
             - name: Setup Unity
               uses: game-ci/unity-builder@v2
               with:
                   unityVersion: ${{ matrix.unity }}
                   targetPlatform: ${{ matrix.target }}
+              env:
+                  UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+                  UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+                  UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
 
             - name: Run Unity build
               run: |
