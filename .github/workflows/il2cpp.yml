@@ -78,12 +78,12 @@ jobs:
             #       /opt/unity/Editor/Unity -batchmode -nographics -quit -projectPath "$GITHUB_WORKSPACE" -buildTarget ${{ matrix.target }} -executeMethod BuildScript.PerformBuild -logFile "$outdir/build.log" || true
 
             - name: Archive build (Linux/macOS)
-              if: runner.os != 'windows-latest'
+              if: runner.os != 'windows'
               run: |
                 zip -r build-${{ matrix.unity }}-${{ matrix.target }}.zip ./build
 
             - name: Archive build (Windows)
-              if: runner.os == 'windows-latest'
+              if: runner.os == 'windows'
               shell: pwsh
               run: |
                 Compress-Archive -Path build -DestinationPath build-${{ matrix.unity }}-${{ matrix.target }}.zip -Force
