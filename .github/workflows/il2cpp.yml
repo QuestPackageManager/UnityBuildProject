@@ -1,0 +1,65 @@
+name: Unity IL2CPP Build
+
+on:
+    push:
+        branches: [master]
+    pull_request:
+        branches: [master]
+    release:
+        types: [published]
+
+jobs:
+    build:
+        name: Build (Unity ${{ matrix.unity }} / ${{ matrix.target }})
+        runs-on: ubuntu-latest
+        strategy:
+            fail-fast: false
+            matrix:
+                unity: ["2019.4.28f1", "2022.3.33f1", "6000.0.65f1"]
+                target: ["StandaloneWindows64", "StandaloneLinux64", "Android"]
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            - name: Cache Library
+              uses: actions/cache@v4
+              with:
+                  path: Library
+                  key: ${{ runner.os }}-unity-${{ matrix.unity }}-${{ matrix.target }}-library-${{ hashFiles('**/Packages/manifest.json') }}
+
+            - name: Setup Unity
+              uses: game-ci/unity-builder@v2
+              with:
+                  unityVersion: ${{ matrix.unity }}
+                  targetPlatform: ${{ matrix.target }}
+
+            - name: Run Unity build
+              run: |
+                  outdir=build/${{ matrix.unity }}/${{ matrix.target }}
+                  mkdir -p "$outdir"
+                  # Replace `BuildScript.PerformBuild` with your project's build method.
+                  /opt/unity/Editor/Unity -batchmode -nographics -quit -projectPath "$GITHUB_WORKSPACE" -buildTarget ${{ matrix.target }} -executeMethod BuildScript.PerformBuild -logFile "$outdir/build.log" || true
+
+            - name: Archive build
+              run: |
+                  outdir=build/${{ matrix.unity }}/${{ matrix.target }}
+                  zip -r "$outdir.zip" "$outdir"
+
+            - name: Upload to GitHub Release
+              if: github.event_name == 'release'
+              uses: actions/upload-release-asset@v1
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              with:
+                  upload_url: ${{ github.event.release.upload_url }}
+                  asset_path: build/${{ matrix.unity }}/${{ matrix.target }}.zip
+                  asset_name: build-${{ matrix.unity }}-${{ matrix.target }}.zip
+                  asset_content_type: application/zip
+
+            - name: Upload build artifact
+              if: github.event_name != 'release'
+              uses: actions/upload-artifact@v4
+              with:
+                  name: build-${{ matrix.unity }}-${{ matrix.target }}
+                  path: build/${{ matrix.unity }}/${{ matrix.target }}
