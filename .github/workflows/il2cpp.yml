@@ -79,8 +79,7 @@ jobs:
 
             - name: Archive build
               run: |
-                  outdir=build/${{ matrix.unity }}/${{ matrix.target }}
-                  zip -r "$outdir.zip" "$outdir"
+                  zip -r build-${{ matrix.unity }}-${{ matrix.target }}.zip ./build
 
             - name: Upload to GitHub Release
               if: github.event_name == 'release'
@@ -89,7 +88,7 @@ jobs:
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
               with:
                   upload_url: ${{ github.event.release.upload_url }}
-                  asset_path: build/${{ matrix.unity }}/${{ matrix.target }}.zip
+                  asset_path: build-${{ matrix.unity }}-${{ matrix.target }}.zip
                   asset_name: build-${{ matrix.unity }}-${{ matrix.target }}.zip
                   asset_content_type: application/zip
 
@@ -98,4 +97,4 @@ jobs:
               uses: actions/upload-artifact@v4
               with:
                   name: build-${{ matrix.unity }}-${{ matrix.target }}
-                  path: build/${{ matrix.unity }}/${{ matrix.target }}
+                  path: build/
