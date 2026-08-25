@@ -36,13 +36,13 @@ jobs:
                       target: "Android"
                       os: "ubuntu-latest"
 
-                    - unity: "6000.0.65f1"
+                    - unity: "6000.0.40f1"
                       target: "StandaloneWindows64"
                       os: "windows-latest"
-                    - unity: "6000.0.65f1"
+                    - unity: "6000.0.40f1"
                       target: "StandaloneLinux64"
                       os: "ubuntu-latest"
-                    - unity: "6000.0.65f1"
+                    - unity: "6000.0.40f1"
                       target: "Android"
                       os: "ubuntu-latest"
 
