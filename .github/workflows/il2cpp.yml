@@ -107,8 +107,10 @@ jobs:
                 unzip -q patcher.zip -d unity-application-patcher
                 chmod +x unity-application-patcher/UnityApplicationPatcherCLI
                 export LD_LIBRARY_PATH="$GITHUB_WORKSPACE/unity-application-patcher/Data/StreamingAssets/Android/SDK/platform-tools/lib64"
+                # The patcher CLI is itself a Unity-built binary and segfaults without a display to open a window against
+                sudo apt-get update && sudo apt-get install -y xvfb
                 # versionCode 0 means ignore
-                unity-application-patcher/UnityApplicationPatcherCLI -android -versionCode 0 -applicationPath "$apk"
+                xvfb-run -a unity-application-patcher/UnityApplicationPatcherCLI -android -versionCode 0 -applicationPath "$apk"
 
                 patched="${apk%.apk}.patched.apk"
                 unzip -p "$patched" lib/arm64-v8a/libunity.so > "build/${{ matrix.target }}/libunity.so"
