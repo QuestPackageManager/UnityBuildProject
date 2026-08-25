@@ -148,6 +148,8 @@ public class BuildLibunity : MonoBehaviour
             options = BuildOptions.None,
         };
         // Build the player for the requested target
+        if(target == BuildTarget.Android) EditorUserBuildSettings.androidCreateSymbols = AndroidCreateSymbols.Debugging;
+        if(target == BuildTarget.Android) EditorUserBuildSettings.androidCreateSymbolsZip = true;
         var build = BuildPipeline.BuildPlayer(options);
         if(build.summary.result != UnityEditor.Build.Reporting.BuildResult.Succeeded)
         {
@@ -156,6 +158,28 @@ public class BuildLibunity : MonoBehaviour
 
         if(target == BuildTarget.Android)
         {
+            var buildDirectory = Path.GetDirectoryName(outputFile)!;
+            var symbolsZip = Directory.EnumerateFiles(buildDirectory, "*.symbols.zip", SearchOption.TopDirectoryOnly)
+                .Where(path => File.GetLastWriteTimeUtc(path) >= build.summary.buildStartedAt.ToUniversalTime())
+                .OrderByDescending(File.GetLastWriteTimeUtc)
+                .FirstOrDefault();
+            if(symbolsZip == null)
+            {
+                throw new FileNotFoundException($"Could not find the symbols package generated for '{outputFile}'");
+            }
+
+            using (ZipArchive symbolsArchive = ZipFile.OpenRead(symbolsZip))
+            {
+                var symbolsEntry = symbolsArchive.Entries.FirstOrDefault(entry =>
+                    entry.Name == "libunity.so" || entry.Name == "libunity.sym.so" || entry.Name == "libunity.dbg.so" ||
+                    entry.Name == "libunity.so.sym" || entry.Name == "libunity.so.dbg");
+                if(symbolsEntry == null)
+                {
+                    throw new FileNotFoundException($"Could not find libunity symbols in '{symbolsZip}'");
+                }
+                symbolsEntry.ExtractToFile(Path.Join(Application.dataPath, "..", "libunity.sym.so"), overwrite: true);
+            }
+
             // Android needs the extra patch-and-extract pass
             await PatchAndroidLibunity(outputFile);
         }
