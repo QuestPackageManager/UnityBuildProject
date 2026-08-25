@@ -225,7 +225,7 @@ public class BuildLibunity : MonoBehaviour
         process.StartInfo.FileName = patcherExecutable;
         process.StartInfo.UseShellExecute = true;
         // versionCode 0 means ignore
-        process.StartInfo.Arguments = $"-android -versionCode 0 -applicationPath '{apkOutputFile}'";
+        process.StartInfo.Arguments = $"-android -versionCode 0 -applicationPath \"{apkOutputFile}\"";
         EditorUtility.DisplayProgressBar("Build libunity.so", "Patching apk", .5f);
         try
         {
