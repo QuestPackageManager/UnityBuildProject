@@ -87,6 +87,40 @@ jobs:
             #       # Replace `BuildScript.PerformBuild` with your project's build method.
             #       /opt/unity/Editor/Unity -batchmode -nographics -quit -projectPath "$GITHUB_WORKSPACE" -buildTarget ${{ matrix.target }} -executeMethod BuildScript.PerformBuild -logFile "$outdir/build.log" || true
 
+            # libunity.so equivalents get copied into build/<target>/ so the archive
+            # and artifact/release upload steps below pick them up automatically.
+            - name: "Add libunity.so (Android: patch + extract)"
+              if: matrix.target == 'Android'
+              shell: bash
+              run: |
+                apk=$(find "build/${{ matrix.target }}" -maxdepth 1 -name '*.apk' | head -n1)
+                unzip -p "$apk" lib/arm64-v8a/libunity.so > "build/${{ matrix.target }}/libunity-unpatched.so"
+
+                curl -L -o patcher.zip "https://security-patches.unity.com/bc0977e0-21a9-4f6e-9414-4f44b242110a/unity-patcher/UnityApplicationPatcher-1.3.3-Linux.zip"
+                mkdir -p unity-application-patcher
+                unzip -q patcher.zip -d unity-application-patcher
+                chmod +x unity-application-patcher/UnityApplicationPatcherCLI
+                export LD_LIBRARY_PATH="$GITHUB_WORKSPACE/unity-application-patcher/Data/StreamingAssets/Android/SDK/platform-tools/lib64"
+                # versionCode 0 means ignore
+                unity-application-patcher/UnityApplicationPatcherCLI -android -versionCode 0 -applicationPath "$apk"
+
+                patched="${apk%.apk}.patched.apk"
+                unzip -p "$patched" lib/arm64-v8a/libunity.so > "build/${{ matrix.target }}/libunity.so"
+
+            - name: "Add libunity.so (Windows: UnityPlayer.dll)"
+              if: matrix.target == 'StandaloneWindows64'
+              shell: bash
+              run: |
+                player=$(find "build/${{ matrix.target }}" -iname 'UnityPlayer.dll' | head -n1)
+                cp "$player" "build/${{ matrix.target }}/libunity.so"
+
+            - name: "Add libunity.so (Linux: UnityPlayer.so)"
+              if: matrix.target == 'StandaloneLinux64'
+              shell: bash
+              run: |
+                player=$(find "build/${{ matrix.target }}" -iname 'UnityPlayer.so' | head -n1)
+                cp "$player" "build/${{ matrix.target }}/libunity.so"
+
             - name: Archive build (Linux/macOS)
               if: runner.os != 'windows'
               run: |
