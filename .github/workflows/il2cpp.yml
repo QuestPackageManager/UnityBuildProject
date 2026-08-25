@@ -88,10 +88,10 @@ jobs:
             #       /opt/unity/Editor/Unity -batchmode -nographics -quit -projectPath "$GITHUB_WORKSPACE" -buildTarget ${{ matrix.target }} -executeMethod BuildScript.PerformBuild -logFile "$outdir/build.log" || true
 
             # game-ci/unity-builder runs the build in a root-owned Docker container on Linux,
-            # leaving build/ root-owned — fix that before writing into it below.
+            # leaving build/ owned by root — reclaim it for the runner user before writing into it below.
             - name: Fix build output permissions
               if: runner.os != 'Windows'
-              run: sudo chmod -R u+rwX build
+              run: sudo chown -R "$(id -u):$(id -g)" build
 
             # libunity.so equivalents get copied into build/<target>/ so the archive
             # and artifact/release upload steps below pick them up automatically.
