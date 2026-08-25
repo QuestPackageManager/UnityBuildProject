@@ -7,6 +7,8 @@ using System;
 using System.Diagnostics;
 using System.Security.Permissions;
 using System.IO.Compression;
+using System.Linq;
+using System.Threading.Tasks;
 
 public class BuildLibunity : MonoBehaviour
 {
@@ -88,20 +90,90 @@ public class BuildLibunity : MonoBehaviour
         return null;
     }
 
-    [MenuItem("Jobs/Build libunity.so")]
-    static async void Build()
+    static BuildTarget GetHostBuildTarget()
     {
-        var apkOutputFile = Path.Join(Application.dataPath, "..", "game.apk");
+        if(RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) return BuildTarget.StandaloneWindows64;
+        if(RuntimeInformation.IsOSPlatform(OSPlatform.Linux)) return BuildTarget.StandaloneLinux64;
+        if(RuntimeInformation.IsOSPlatform(OSPlatform.OSX)) return BuildTarget.StandaloneOSX;
+        throw new PlatformNotSupportedException("Unsupported host platform");
+    }
+
+    static string GetHostEngineLibraryName(BuildTarget target)
+    {
+        return target switch
+        {
+            BuildTarget.StandaloneWindows64 => "UnityPlayer.dll",
+            BuildTarget.StandaloneLinux64 => "UnityPlayer.so",
+            BuildTarget.StandaloneOSX => "UnityPlayer.dylib",
+            _ => throw new PlatformNotSupportedException($"No known engine library for {target}"),
+        };
+    }
+
+    static string FindFile(string rootDir, string fileName)
+    {
+        var match = Directory.EnumerateFiles(rootDir, fileName, SearchOption.AllDirectories).FirstOrDefault();
+        if (match == null)
+        {
+            throw new FileNotFoundException($"Could not find '{fileName}' under '{rootDir}'");
+        }
+        return match;
+    }
+
+    [MenuItem("Jobs/Build libunity.so (Host)")]
+    static async void BuildHost()
+    {
+        await Build(GetHostBuildTarget());
+    }
+
+    [MenuItem("Jobs/Build libunity.so (Android)")]
+    static async void BuildAndroid()
+    {
+        await Build(BuildTarget.Android);
+    }
+
+    static async Task Build(BuildTarget target)
+    {
+        // Pick the player output filename Unity expects for this target
+        var outputName = target switch
+        {
+            BuildTarget.Android => "game.apk",
+            BuildTarget.StandaloneWindows64 => "game.exe",
+            _ => "game",
+        };
+        var outputFile = Path.Join(Application.dataPath, "..", outputName);
         var options = new BuildPlayerOptions
         {
-            locationPathName = apkOutputFile,
-            target = BuildTarget.Android,
+            locationPathName = outputFile,
+            target = target,
             options = BuildOptions.None,
         };
+        // Build the player for the requested target
         var build = BuildPipeline.BuildPlayer(options);
         if(build.summary.result != UnityEditor.Build.Reporting.BuildResult.Succeeded)
         {
             return;
+        }
+
+        if(target == BuildTarget.Android)
+        {
+            // Android needs the extra patch-and-extract pass
+            await PatchAndroidLibunity(outputFile);
+        }
+        else
+        {
+            // Other targets: just copy the engine library straight out of the build output
+            var libraryPath = FindFile(Path.GetDirectoryName(outputFile)!, GetHostEngineLibraryName(target));
+            File.Copy(libraryPath, Path.Join(Application.dataPath, "..", Application.unityVersion + ".so"), true);
+        }
+    }
+
+    static async Task PatchAndroidLibunity(string apkOutputFile)
+    {
+        // Grab the unpatched libunity.so straight from the built apk
+        var unpatchedLibunity = Path.Join(Application.dataPath, "..", Application.unityVersion + "-unpatched.so");
+        using (ZipArchive apkArchive = ZipFile.OpenRead(apkOutputFile))
+        {
+            apkArchive.GetEntry("lib/arm64-v8a/libunity.so")!.ExtractToFile(unpatchedLibunity, overwrite: true);
         }
 
         var patcherDirectory = Path.Join(Application.dataPath, "..", "unity-application-patcher");
@@ -109,6 +181,7 @@ public class BuildLibunity : MonoBehaviour
         var patcherExecutable = Path.Join(patcherDirectory, executableName);
         if(!File.Exists(patcherExecutable))
         {
+            // Patcher tool isn't present yet, so fetch and unpack it first
             EditorUtility.DisplayProgressBar("Build libunity.so", "Downloading patcher tool", 0);
             var client = new HttpClient();
             var url = GetPatcherURL();
@@ -130,6 +203,7 @@ public class BuildLibunity : MonoBehaviour
             int bytesRead = 0;
             int totalBytesRead = 0;
             var file = new FileStream(archiveName, FileMode.CreateNew);
+            // Stream the patcher zip to disk in chunks, reporting progress
             while((bytesRead = await stream.ReadAsync(buffer, 0, buffer.Length, default).ConfigureAwait(false)) != 0)
             {
                 await file.WriteAsync(buffer, 0, bytesRead);
@@ -138,6 +212,7 @@ public class BuildLibunity : MonoBehaviour
             }
             file.Close();
             stream.Close();
+            // Unpack the patcher tool, preserving executable bits on Linux/macOS
             ExtractWithExecutableBits(archiveName, patcherDirectory, (extracted, total) => EditorUtility.DisplayProgressBar("Build libunity.so", "Extracting patcher tool", (float)extracted / (float)total));
             File.Delete(archiveName);
             EditorUtility.ClearProgressBar();
@@ -149,13 +224,14 @@ public class BuildLibunity : MonoBehaviour
         var process = new Process();
         process.StartInfo.FileName = patcherExecutable;
         process.StartInfo.UseShellExecute = true;
-        // versionCode 0 means ignore 
+        // versionCode 0 means ignore
         process.StartInfo.Arguments = $"-android -versionCode 0 -applicationPath '{apkOutputFile}'";
         EditorUtility.DisplayProgressBar("Build libunity.so", "Patching apk", .5f);
         try
         {
             UnityEngine.Debug.Log(process.StartInfo.FileName);
             UnityEngine.Debug.Log(process.StartInfo.Arguments);
+            // Run the patcher CLI against the built apk, producing game.patched.apk
             process.Start();
             process.WaitForExit();
             UnityEngine.Debug.Log($"Process exited with code {process.ExitCode}");
@@ -164,14 +240,18 @@ public class BuildLibunity : MonoBehaviour
         {
             UnityEngine.Debug.LogError(e.ToString());
             EditorUtility.ClearProgressBar();
+            return;
         }
         EditorUtility.ClearProgressBar();
 
         EditorUtility.DisplayProgressBar("Build libunity.so", "Extracting file from apk", .8f);
-        var apkExtractedFolder = Path.Join(Application.dataPath, "..", "game");
-        ZipFile.ExtractToDirectory(Path.Join(Application.dataPath, "..", "game.patched.apk"), apkExtractedFolder, true);
-        File.Copy(Path.Join(apkExtractedFolder, "lib/arm64-v8a/libunity.so"), Path.Join(Application.dataPath, "..", Application.unityVersion + ".so"), true);
-        Directory.Delete(apkExtractedFolder, true);
+        var patchedApk = Path.Join(Application.dataPath, "..", "game.patched.apk");
+        var patchedLibunity = Path.Join(Application.dataPath, "..", Application.unityVersion + ".so");
+        // Grab the patched libunity.so out of the patcher's output apk
+        using (ZipArchive patchedArchive = ZipFile.OpenRead(patchedApk))
+        {
+            patchedArchive.GetEntry("lib/arm64-v8a/libunity.so")!.ExtractToFile(patchedLibunity, overwrite: true);
+        }
         EditorUtility.ClearProgressBar();
     }
 }
