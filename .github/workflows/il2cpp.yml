@@ -46,13 +46,13 @@ jobs:
                       target: "Android"
                       os: "ubuntu-latest"
 
-                    - unity: "6000.3.21f1"
+                    - unity: "6000.3.19f1"
                       target: "StandaloneWindows64"
                       os: "windows-latest"
-                    - unity: "6000.3.21f1"
+                    - unity: "6000.3.19f1"
                       target: "StandaloneLinux64"
                       os: "ubuntu-latest"
-                    - unity: "6000.3.21f1"
+                    - unity: "6000.3.19f1"
                       target: "Android"
                       os: "ubuntu-latest"
 
@@ -96,7 +96,7 @@ jobs:
 
             # libunity.so equivalents get copied into build/<target>/ so the archive
             # and artifact/release upload steps below pick them up automatically.
-            - name: "Add libunity.so (Android: patch + extract)"
+            - name: "Add libunity.so (Android: extract + patch older versions)"
               if: matrix.target == 'Android'
               shell: bash
               run: |
@@ -106,6 +106,12 @@ jobs:
                 symbols_zip=$(find "build/${{ matrix.target }}" -name '*.symbols.zip' | head -n1)
                 symbol_entry=$(unzip -Z1 "$symbols_zip" | grep -E '(^|/)arm64-v8a/libunity(\.so|\.(sym|dbg)\.so|\.so\.(sym|dbg))$')
                 unzip -p "$symbols_zip" "$symbol_entry" > "build/${{ matrix.target }}/libunity.sym.so"
+
+                # Skip the legacy security patcher for this Unity revision.
+                if [[ "${{ matrix.unity }}" == "6000.3.19f1" ]]; then
+                  cp "build/${{ matrix.target }}/libunity-unpatched.so" "build/${{ matrix.target }}/libunity.so"
+                  exit 0
+                fi
 
                 curl -L -o patcher.zip "https://security-patches.unity.com/bc0977e0-21a9-4f6e-9414-4f44b242110a/unity-patcher/UnityApplicationPatcher-1.3.3-Linux.zip"
                 mkdir -p unity-application-patcher
